@@ -204,6 +204,11 @@ async function scrape(db) {
           .run();
         if (r.meta.changes > 0) {
           const rid = r.meta.last_row_id;
+          // pinyin 用 id 兜底（Worker 里不引入拼音库，数字 ID 详情页同样支持）
+          await db
+            .prepare("UPDATE resource SET pinyin = CAST(? AS TEXT) WHERE id = ?")
+            .bind(rid, rid)
+            .run();
           await db
             .prepare(
               "INSERT INTO resource_disk (resource_id, disk_type, external_url, url) " +
