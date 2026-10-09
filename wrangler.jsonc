@@ -1,0 +1,19 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "duanjuku-scraper",
+	"main": "worker.js",
+	"compatibility_date": "2026-08-01",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "duanjuku",
+			"database_id": "7c59a63a-833e-4f52-ae2f-f514361b008a"
+		}
+	],
+	"triggers": { "crons": ["37 0 * * *"] }
+}
+// 定时：每天 UTC 00:37 ＝ 北京时间 08:37（沿用原来的采集时间）
+// Secret（Cloudflare 控制台 → Worker → Settings → Variables and Secrets）：
+//   NOTICE_API    Server酱推送地址（https://sctapi.ftqq.com/{SendKey}.send），与转存服务共用
+//   SCRAPE_TOKEN  手动触发口令（可选）：GET /scrape?token=xxx
+// 部署：GitHub 仓库连接 Cloudflare Workers，Build 命令留空，Deploy 命令 npx wrangler deploy
