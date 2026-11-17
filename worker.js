@@ -2,8 +2,11 @@
  * duanjuku-scraper —— 短剧库 TG 频道采集 Worker
  *
  * 每天定时抓取 https://t.me/s/kduanju 公开预览页的新短剧消息，
- * 只收标题以"短剧"开头的单剧消息和"X月X日短剧更新汇总"（拆多行），
+ * 只收标题以"短剧"开头的单剧消息和"X月X日短剧更新（汇总）"（拆多行），
  * 只收夸克链接，写入 D1（resource + resource_disk，与现有导入格式一致）。
+ * 2026-11-18 修复：频道 10 月 19–20 日前后把汇总标题改成不带"汇总"的
+ * "X月X日短剧更新"，旧正则认不出导致 10 月 20 日后零新增；另汇总条目
+ * 每行自带各自的夸克链，改按行取链（旧逻辑整条消息共用第一个链）。
  *
  * 触发方式：
  *   - 定时：wrangler.jsonc triggers.crons（每天北京时间 08:37）
@@ -33,7 +36,7 @@ const RE_TIME = /<time datetime="([^"]+)"/;
 const RE_QUARK = /https?:\/\/pan\.quark\.cn\/s\/[A-Za-z0-9]+/;
 const RE_TAG = /<[^>]+>/g;
 const RE_BR = /<br\s*\/?>/gi;
-const RE_HUIZONG_TITLE = /^\d{1,2}月\d{1,2}日短剧更新汇总/;
+const RE_HUIZONG_TITLE = /^\d{1,2}月\d{1,2}日短剧更新(汇总)?/;
 const RE_HUIZONG_ITEM = /^\d{1,3}[.、．]\s*(.+?)\s*$/;
 
 /** 最小 HTML 实体解码（标题里偶尔出现） */
@@ -103,14 +106,17 @@ function extractRows(post) {
 
   const rows = [];
   if (first.startsWith("短剧")) {
-    const title = first.replace(/^短剧[．.．:：、\s]*/, "").trim();
+    const title = first.replace(/^短剧[．.．:：、\s]*/, "").split(/\s*https?:\/\//)[0].trim();
     if (title) rows.push({ title, quark, desc });
   } else if (RE_HUIZONG_TITLE.test(first)) {
     for (let i = 1; i < lines.length; i++) {
       const m = lines[i].match(RE_HUIZONG_ITEM);
       if (!m) continue;
-      const title = m[1].trim();
-      if (title) rows.push({ title, quark, desc });
+      // 条目标题截到第一个链接之前；链取本行自己的夸克链，无则回退整条消息的链
+      const title = m[1].split(/\s*https?:\/\//)[0].trim();
+      if (!title) continue;
+      const lqm = lines[i].match(RE_QUARK);
+      rows.push({ title, quark: lqm ? lqm[0] : quark, desc });
     }
   }
   return rows;
